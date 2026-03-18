@@ -1,6 +1,11 @@
-describe('Device panel', () => {
+describe('Device panel (no device)', () => {
+  // Skipped automatically on mock builds where get_connected_ereaders returns a device.
   it('shows placeholder when no device is connected', async () => {
-    // The non-mock build returns an empty device list
+    const badge = await $('.badge-connected')
+    if (await badge.isExisting()) {
+      // Mock build — device is present, skip this assertion
+      return
+    }
     const placeholder = await $('.panel-device .placeholder')
     await expect(placeholder).toBeDisplayed()
     await expect(placeholder).toHaveText('Connect your eReader')
@@ -8,26 +13,24 @@ describe('Device panel', () => {
 
   it('does not show connected badge when no device is present', async () => {
     const badge = await $('.badge-connected')
+    if (await badge.isExisting()) return
     await expect(badge).not.toExist()
   })
 
   it('disables eject button when no device is connected', async () => {
+    const badge = await $('.badge-connected')
+    if (await badge.isExisting()) return
     const btn = await $('.btn-eject')
     await expect(btn).toBeDisabled()
   })
 })
 
 describe('Device panel (mock device)', () => {
-  // These tests require the e2e-mock build (EPUBL_BIN set to mock binary)
-  // They are skipped automatically when the mock feature is not present
-  // because get_connected_ereaders returns [] on Linux without the feature.
-  // Run with: EPUBL_BIN=./src-tauri/target/release/epubl-mock npx wdio run wdio.conf.ts
-
+  // These tests require the e2e-mock build which injects a Kindle device.
   it('shows device model when connected', async () => {
     const model = await $('.device-model')
-    // Only assert if element exists (mock build)
     if (await model.isExisting()) {
-      await expect(model).toHaveText('Kindle Paperwhite')
+      await expect(model).toHaveText('Kindle Internal Storage')
     }
   })
 

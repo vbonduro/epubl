@@ -11,6 +11,6 @@ describe('Eject error display (mock build)', () => {
     await btn.click()
     const error = await $('.eject-error')
     await expect(error).toBeDisplayed()
-    await expect(error).toHaveTextContaining('Mocked eject error')
+    await expect(error).toHaveText(expect.stringContaining('Mocked eject error'))
   })
 })

@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-dev \
     # For running a display in CI / headless testing
     xvfb \
+    # WebKitWebDriver — required by tauri-driver for E2E tests on Linux
+    webkit2gtk-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js LTS (v22) — matches the developer's local version
@@ -31,8 +33,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
 # Rust stable toolchain (base image ships stable, but pin explicitly)
 RUN rustup update stable && rustup default stable
 
-# cargo-tauri CLI
-RUN cargo install tauri-cli --version "^2" --locked
+# cargo-tauri CLI and tauri-driver (WebDriver server for E2E tests)
+RUN cargo install tauri-cli --version "^2" --locked && \
+    cargo install tauri-driver --locked
 
 # Pre-warm the Cargo registry cache so the first `cargo build` is faster.
 # We copy only the dependency manifests to keep this layer cacheable.

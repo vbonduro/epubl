@@ -8,7 +8,7 @@ describe('Update banner (mock update)', () => {
     const banner = await $('.update-banner')
     if (await banner.isExisting()) {
       await expect(banner).toBeDisplayed()
-      await expect(banner).toHaveTextContaining('9.9.9')
+      await expect(banner).toHaveText(expect.stringContaining('9.9.9'))
     }
   })
 
