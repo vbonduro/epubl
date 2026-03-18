@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:e2e": "bash e2e/run.sh",
+    "test:e2e:ci": "DISPLAY=:99 npx wdio run wdio.conf.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -16,8 +18,17 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5",
     "@tauri-apps/cli": "^2",
+    "@types/mocha": "^10",
+    "@wdio/cli": "^8",
+    "@wdio/local-runner": "^8",
+    "@wdio/mocha-framework": "^8",
+    "@wdio/spec-reporter": "^8",
+    "@wdio/types": "^8",
     "svelte": "^5",
+    "ts-node": "^10",
     "typescript": "^5",
-    "vite": "^6"
+    "vite": "^6",
+    "wdio-service-tauri": "^1",
+    "webdriverio": "^8"
   }
 }

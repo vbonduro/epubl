@@ -33,6 +33,13 @@ windows = { version = "0.58", features = [
     "Win32_System_Wmi",
 ] }
 
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+e2e-mock = []
+e2e-update-mock = []
+
 [profile.dev]
 incremental = true
 

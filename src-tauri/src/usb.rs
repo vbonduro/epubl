@@ -34,12 +34,75 @@ pub struct EReaderInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Vendor / device identification helpers (unconditionally compiled, pure functions)
+// ---------------------------------------------------------------------------
+
+#[allow(dead_code)] // functions are called from windows_impl; unused on Linux
+pub(crate) mod identification {
+    /// Returns the normalised vendor name for a disk drive.
+    ///
+    /// Identification is performed in two steps:
+    /// 1. Check `pnp_device_id` for well-known USB Vendor IDs (most reliable).
+    /// 2. Fall back to a case-insensitive substring match against `model`.
+    pub fn identify_vendor(pnp_device_id: &str, model: &str) -> &'static str {
+        let pnp_upper = pnp_device_id.to_uppercase();
+        let model_upper = model.to_uppercase();
+
+        // --- VID-based identification ---
+        if pnp_upper.contains("VID_1949") {
+            return "Kindle";
+        }
+        if pnp_upper.contains("VID_2080") {
+            return "Kobo";
+        }
+        if pnp_upper.contains("VID_0525") || pnp_upper.contains("VID_2899") {
+            return "PocketBook";
+        }
+        if pnp_upper.contains("VID_FDE8") {
+            return "Bookeen";
+        }
+
+        // --- Model-name fallback ---
+        if model_upper.contains("KINDLE") {
+            return "Kindle";
+        }
+        if model_upper.contains("KOBO") {
+            return "Kobo";
+        }
+        if model_upper.contains("POCKETBOOK") {
+            return "PocketBook";
+        }
+        if model_upper.contains("BOOKEEN") {
+            return "Bookeen";
+        }
+
+        "Unknown"
+    }
+
+    /// Returns `true` when the drive matches a known eReader vendor.
+    pub fn is_ereader(pnp_device_id: &str, model: &str) -> bool {
+        identify_vendor(pnp_device_id, model) != "Unknown"
+    }
+
+    /// Parses a WMI object path like `Win32_LogicalDisk.DeviceID="E:"` and
+    /// returns just the `DeviceID` value (`"E:"`).
+    pub fn extract_device_id_from_path(object_path: &str) -> Option<String> {
+        let key = "DeviceID=\"";
+        let start = object_path.find(key)? + key.len();
+        let rest = &object_path[start..];
+        let end = rest.find('"')?;
+        Some(rest[..end].to_string())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Windows implementation
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use super::EReaderInfo;
+    use super::identification::{extract_device_id_from_path, identify_vendor, is_ereader};
 
     use serde::Deserialize;
     use tauri::Emitter;
@@ -95,55 +158,6 @@ mod windows_impl {
     }
 
     // -----------------------------------------------------------------------
-    // Vendor / device identification helpers
-    // -----------------------------------------------------------------------
-
-    /// Returns the normalised vendor name for a disk drive.
-    ///
-    /// Identification is performed in two steps:
-    /// 1. Check `pnp_device_id` for well-known USB Vendor IDs (most reliable).
-    /// 2. Fall back to a case-insensitive substring match against `model`.
-    pub(super) fn identify_vendor(pnp_device_id: &str, model: &str) -> &'static str {
-        let pnp_upper = pnp_device_id.to_uppercase();
-        let model_upper = model.to_uppercase();
-
-        // --- VID-based identification ---
-        if pnp_upper.contains("VID_1949") {
-            return "Kindle";
-        }
-        if pnp_upper.contains("VID_2080") {
-            return "Kobo";
-        }
-        if pnp_upper.contains("VID_0525") || pnp_upper.contains("VID_2899") {
-            return "PocketBook";
-        }
-        if pnp_upper.contains("VID_FDE8") {
-            return "Bookeen";
-        }
-
-        // --- Model-name fallback ---
-        if model_upper.contains("KINDLE") {
-            return "Kindle";
-        }
-        if model_upper.contains("KOBO") {
-            return "Kobo";
-        }
-        if model_upper.contains("POCKETBOOK") {
-            return "PocketBook";
-        }
-        if model_upper.contains("BOOKEEN") {
-            return "Bookeen";
-        }
-
-        "Unknown"
-    }
-
-    /// Returns `true` when the drive matches a known eReader vendor.
-    pub(super) fn is_ereader(pnp_device_id: &str, model: &str) -> bool {
-        identify_vendor(pnp_device_id, model) != "Unknown"
-    }
-
-    // -----------------------------------------------------------------------
     // Drive-letter resolution
     // -----------------------------------------------------------------------
 
@@ -193,16 +207,6 @@ mod windows_impl {
         }
 
         None
-    }
-
-    /// Parses a WMI object path like `Win32_LogicalDisk.DeviceID="E:"` and
-    /// returns just the `DeviceID` value (`"E:"`).
-    fn extract_device_id_from_path(object_path: &str) -> Option<String> {
-        let key = "DeviceID=\"";
-        let start = object_path.find(key)? + key.len();
-        let rest = &object_path[start..];
-        let end = rest.find('"')?;
-        Some(rest[..end].to_string())
     }
 
     // -----------------------------------------------------------------------
@@ -507,12 +511,29 @@ mod platform_stubs {
     pub async fn watch_ereader(_app: tauri::AppHandle) {}
 
     /// Always returns an empty list on non-Windows platforms.
+    #[cfg(not(feature = "e2e-mock"))]
     pub async fn list_ereaders() -> Result<Vec<EReaderInfo>, String> {
         Ok(vec![])
     }
 
+    /// Returns a hardcoded Kindle device when the e2e-mock feature is enabled.
+    #[cfg(feature = "e2e-mock")]
+    pub async fn list_ereaders() -> Result<Vec<EReaderInfo>, String> {
+        Ok(vec![EReaderInfo {
+            drive_letter: "E:".to_string(),
+            model: "Kindle Internal Storage".to_string(),
+            vendor: "Kindle".to_string(),
+        }])
+    }
+
+    #[cfg(not(feature = "e2e-mock"))]
     pub fn eject_ereader(_drive_letter: &str) -> Result<(), String> {
         Err("USB eject not supported on this platform".to_string())
+    }
+
+    #[cfg(feature = "e2e-mock")]
+    pub fn eject_ereader(_drive_letter: &str) -> Result<(), String> {
+        Err("Mocked eject error".to_string())
     }
 }
 
@@ -544,4 +565,101 @@ pub async fn get_connected_ereaders() -> Result<Vec<EReaderInfo>, String> {
 #[tauri::command]
 pub fn eject(drive_letter: String) -> Result<(), String> {
     eject_ereader(&drive_letter)
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use crate::usb::identification::*;
+
+    #[test]
+    fn kindle_identified_by_vid() {
+        assert_eq!(identify_vendor("USB\\VID_1949&PID_0004", ""), "Kindle");
+    }
+
+    #[test]
+    fn kobo_identified_by_vid() {
+        assert_eq!(identify_vendor("USB\\VID_2080&PID_0002", ""), "Kobo");
+    }
+
+    #[test]
+    fn pocketbook_identified_by_first_vid() {
+        assert_eq!(identify_vendor("USB\\VID_0525&PID_A4A5", ""), "PocketBook");
+    }
+
+    #[test]
+    fn pocketbook_identified_by_second_vid() {
+        assert_eq!(identify_vendor("USB\\VID_2899&PID_0001", ""), "PocketBook");
+    }
+
+    #[test]
+    fn bookeen_identified_by_vid() {
+        assert_eq!(identify_vendor("USB\\VID_FDE8&PID_0001", ""), "Bookeen");
+    }
+
+    #[test]
+    fn kindle_identified_by_model_name_fallback() {
+        assert_eq!(identify_vendor("USB\\VID_FFFF&PID_0000", "Kindle Internal Storage"), "Kindle");
+    }
+
+    #[test]
+    fn kobo_identified_by_model_name_fallback() {
+        assert_eq!(identify_vendor("USB\\VID_FFFF&PID_0000", "Kobo eReader"), "Kobo");
+    }
+
+    #[test]
+    fn unknown_device_not_classified_as_ereader() {
+        assert_eq!(identify_vendor("USB\\VID_DEAD&PID_BEEF", "Generic USB Drive"), "Unknown");
+    }
+
+    #[test]
+    fn identification_is_case_insensitive_for_model() {
+        assert_eq!(identify_vendor("USB\\VID_FFFF&PID_0000", "kindle paperwhite"), "Kindle");
+        assert_eq!(identify_vendor("USB\\VID_FFFF&PID_0000", "KOBO CLARA"), "Kobo");
+    }
+
+    #[test]
+    fn vid_takes_priority_over_conflicting_model_name() {
+        // VID_1949 = Kindle, but model says "Kobo" — VID wins.
+        assert_eq!(identify_vendor("USB\\VID_1949&PID_0004", "Kobo eReader"), "Kindle");
+    }
+
+    #[test]
+    fn is_ereader_returns_true_for_kindle_vid() {
+        assert!(is_ereader("USB\\VID_1949&PID_0004", ""));
+    }
+
+    #[test]
+    fn is_ereader_returns_false_for_unknown_vid_and_model() {
+        assert!(!is_ereader("USB\\VID_DEAD&PID_BEEF", "Generic USB Drive"));
+    }
+
+    #[test]
+    fn extract_device_id_from_well_formed_object_path() {
+        let path = r#"Win32_LogicalDisk.DeviceID="E:""#;
+        assert_eq!(extract_device_id_from_path(path), Some("E:".to_string()));
+    }
+
+    #[test]
+    fn extract_device_id_returns_none_for_missing_key() {
+        let path = "Win32_LogicalDisk.SomethingElse=\"E:\"";
+        assert_eq!(extract_device_id_from_path(path), None);
+    }
+
+    #[test]
+    fn extract_device_id_returns_none_for_unterminated_quote() {
+        let path = "Win32_LogicalDisk.DeviceID=\"E:";
+        assert_eq!(extract_device_id_from_path(path), None);
+    }
+
+    #[test]
+    fn extract_device_id_handles_drive_letter_with_colon() {
+        let path = r#"Win32_LogicalDisk.DeviceID="C:""#;
+        let result = extract_device_id_from_path(path);
+        assert_eq!(result, Some("C:".to_string()));
+        assert!(result.unwrap().contains(':'));
+    }
 }
