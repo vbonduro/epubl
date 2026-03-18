@@ -1,4 +1,4 @@
-use epubl_lib::epub::{scan_folder, EpubInfo};
+use epubl_lib::epub::scan_folder;
 use std::fs;
 use tempfile::tempdir;
 
