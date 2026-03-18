@@ -31,7 +31,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust stable toolchain (base image ships stable, but pin explicitly)
-RUN rustup update stable && rustup default stable
+RUN rustup update stable && rustup default stable && rustup component add clippy
 
 # cargo-tauri CLI and tauri-driver (WebDriver server for E2E tests)
 RUN cargo install tauri-cli --version "^2" --locked && \
