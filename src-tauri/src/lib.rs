@@ -12,11 +12,17 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             usb::get_connected_ereaders,
             usb::eject,
+            config::get_config,
+            config::set_config,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 usb::watch_ereader(handle).await;
+            });
+            let handle2 = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                updater::check_for_update(handle2).await;
             });
             Ok(())
         })

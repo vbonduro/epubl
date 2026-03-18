@@ -413,11 +413,85 @@ mod windows_impl {
     }
 
     // -----------------------------------------------------------------------
-    // Eject (stub — full implementation is a separate issue)
+    // Eject
     // -----------------------------------------------------------------------
 
-    pub fn eject_ereader(_drive_letter: &str) -> Result<(), String> {
-        Err("eject not yet implemented".to_string())
+    /// Safely ejects the volume at `drive_letter` (e.g. `"E:"`).
+    ///
+    /// Sequence:
+    /// 1. Open a handle to the raw volume (`\\.\E:`).
+    /// 2. `FSCTL_LOCK_VOLUME`   — exclusive lock; fails when files are open.
+    /// 3. `FSCTL_DISMOUNT_VOLUME` — flush and unmount the filesystem.
+    /// 4. `IOCTL_STORAGE_EJECT_MEDIA` — signal hardware to eject.
+    /// 5. Close handle (automatic on drop via `CloseHandle`).
+    pub fn eject_ereader(drive_letter: &str) -> Result<(), String> {
+        use windows::core::PCWSTR;
+        use windows::Win32::Storage::FileSystem::{
+            CreateFileW, FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+        };
+        use windows::Win32::System::IO::DeviceIoControl;
+        use windows::Win32::System::Ioctl::{
+            FSCTL_DISMOUNT_VOLUME, FSCTL_LOCK_VOLUME, IOCTL_STORAGE_EJECT_MEDIA,
+        };
+        use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE};
+
+        // Build the volume path: `\\.\E:` encoded as a null-terminated wide string.
+        // Strip any trailing backslash that may be present in the drive letter.
+        let letter = drive_letter.trim_end_matches('\\');
+        let volume_path: Vec<u16> = format!(r"\\.\{}", letter)
+            .encode_utf16()
+            .chain(std::iter::once(0u16))
+            .collect();
+
+        // Step 1: open the volume.
+        let handle = unsafe {
+            CreateFileW(
+                PCWSTR(volume_path.as_ptr()),
+                FILE_ACCESS_RIGHTS(GENERIC_READ.0 | GENERIC_WRITE.0),
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                None,
+                OPEN_EXISTING,
+                Default::default(),
+                None,
+            )
+        }
+        .map_err(|e| format!("Could not open volume '{}': {}", letter, e))?;
+
+        if handle == INVALID_HANDLE_VALUE {
+            return Err(format!("Could not open volume '{}': invalid handle", letter));
+        }
+
+        // Helper: run a zero-argument DeviceIoControl call.
+        let ioctl = |code: u32, error_msg: &str| -> Result<(), String> {
+            unsafe {
+                DeviceIoControl(handle, code, None, 0, None, 0, None, None)
+            }
+            .map_err(|e| format!("{}: {}", error_msg, e))
+        };
+
+        // Step 2: lock the volume — fails if any process has files open.
+        ioctl(FSCTL_LOCK_VOLUME, "placeholder").map_err(|_| {
+            "Could not lock device — close any open files on the eReader and try again"
+                .to_string()
+        })?;
+
+        // Step 3: dismount / flush the filesystem.
+        if let Err(e) = ioctl(FSCTL_DISMOUNT_VOLUME, "Could not dismount volume") {
+            // Best-effort close before returning the error.
+            unsafe { let _ = CloseHandle(handle); }
+            return Err(e);
+        }
+
+        // Step 4: eject the media.
+        if let Err(e) = ioctl(IOCTL_STORAGE_EJECT_MEDIA, "Could not eject media") {
+            unsafe { let _ = CloseHandle(handle); }
+            return Err(e);
+        }
+
+        // Step 5: close the handle.
+        unsafe { let _ = CloseHandle(handle); }
+
+        Ok(())
     }
 }
 
