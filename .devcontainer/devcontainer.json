@@ -1,0 +1,43 @@
+{
+  "name": "epubl",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {},
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/epubl,type=bind,consistency=cached"
+  ],
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/epubl,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/epubl",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "svelte.svelte-vscode",
+        "tauri-apps.tauri-vscode",
+        "esbenp.prettier-vscode",
+        "usernamehw.errorlens"
+      ],
+      "settings": {
+        "rust-analyzer.cargo.features": "all",
+        "editor.formatOnSave": true,
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "[svelte]": {
+          "editor.defaultFormatter": "svelte.svelte-vscode"
+        }
+      }
+    }
+  },
+  "postCreateCommand": "npm ci",
+  "remoteUser": "vscode",
+  "forwardPorts": [1420],
+  "portsAttributes": {
+    "1420": {
+      "label": "Vite dev server",
+      "onAutoForward": "silent"
+    }
+  }
+}
