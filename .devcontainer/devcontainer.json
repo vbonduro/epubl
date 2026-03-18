@@ -31,7 +31,7 @@
       }
     }
   },
-  "postCreateCommand": "npm ci",
+  "postCreateCommand": "npm ci && pre-commit install --hook-type pre-push",
   "remoteUser": "vscode",
   "forwardPorts": [1420],
   "portsAttributes": {

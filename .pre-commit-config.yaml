@@ -1,0 +1,11 @@
+repos:
+  - repo: local
+    hooks:
+      # ── pre-push: full test suite inside the devcontainer ──────────────────
+      - id: run-tests-in-devcontainer
+        name: Run all tests in devcontainer
+        language: script
+        entry: scripts/pre-push.sh
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

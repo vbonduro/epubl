@@ -37,6 +37,11 @@ RUN rustup update stable && rustup default stable && rustup component add clippy
 RUN cargo install tauri-cli --version "^2" --locked && \
     cargo install tauri-driver --locked
 
+# uv + pre-commit for source-controlled git hooks
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+RUN uv tool install pre-commit
+
 # Pre-warm the Cargo registry cache so the first `cargo build` is faster.
 # We copy only the dependency manifests to keep this layer cacheable.
 WORKDIR /tmp/cache
