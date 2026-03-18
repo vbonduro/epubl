@@ -101,3 +101,114 @@ html, body {
 .btn-sync:hover:not(:disabled) {
   background: #235a96;
 }
+
+/* Device badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 6px;
+}
+
+.badge-connected {
+  background: #1a4a2a;
+  color: #4caf50;
+  border: 1px solid #2e7d32;
+}
+
+/* Device info */
+.device-info { display: flex; flex-direction: column; gap: 4px; }
+.device-model { font-weight: 600; }
+.device-drive { color: #888; font-size: 12px; }
+.eject-error { color: #e57373; font-size: 12px; margin-top: 8px; }
+
+/* Bookstore link */
+.bookstore-link {
+  display: inline-block;
+  margin-top: auto;
+  padding-top: 12px;
+  font-size: 12px;
+  color: #5b9bd5;
+  text-decoration: none;
+}
+.bookstore-link:hover { text-decoration: underline; }
+
+/* Epub list */
+.epub-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.epub-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #2a2a2a;
+  cursor: pointer;
+}
+
+.epub-item:hover { background: #232323; }
+.epub-title { font-size: 13px; }
+.epub-author { font-size: 11px; color: #888; margin-top: 2px; }
+
+.error-text { color: #e57373; font-size: 12px; }
+
+/* First-run wizard */
+.wizard-overlay {
+  position: fixed;
+  inset: 0;
+  background: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.wizard {
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 32px;
+  width: 480px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wizard-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.wizard-intro {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.wizard-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wizard-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 13px;
+}
+
+.wizard-error { color: #e57373; font-size: 12px; }
+
+.wizard-done { align-self: flex-end; }

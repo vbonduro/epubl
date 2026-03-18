@@ -35,9 +35,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "publisher": "epubl",
+    "copyright": "© 2025 epubl contributors",
+    "category": "Utility",
+    "shortDescription": "Transfer epub books to your eReader",
+    "longDescription": "epubl makes it easy to sync your epub library to your Kindle, Kobo, or other eReader. Connect your device, select books, and click Sync.",
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "startMenuFolder": "epubl"
       }
     }
   },

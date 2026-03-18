@@ -14,6 +14,7 @@ pub fn run() {
             usb::eject,
             config::get_config,
             config::set_config,
+            epub::list_epubs,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
