@@ -145,16 +145,7 @@ mod windows_impl {
     #[serde(rename = "Win32_LogicalDiskToPartition")]
     #[serde(rename_all = "PascalCase")]
     struct LogicalDiskToPartition {
-        antecedent: String, // WMI object path of Win32_DiskPartition
-        dependent: String,  // WMI object path of Win32_LogicalDisk
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename = "Win32_LogicalDisk")]
-    #[serde(rename_all = "PascalCase")]
-    struct Win32LogicalDisk {
-        #[serde(rename = "DeviceID")]
-        device_id: String, // e.g. "E:"
+        dependent: String, // WMI object path of Win32_LogicalDisk (e.g. `Win32_LogicalDisk.DeviceID="E:"`)
     }
 
     // -----------------------------------------------------------------------
@@ -229,7 +220,7 @@ mod windows_impl {
 
             // We need to await `get_drive_letter` inside spawn_blocking, so
             // create a dedicated single-threaded Tokio runtime here.
-            let rt = tokio::runtime::Builder::new_current_thread()
+            let rt: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .map_err(|e| format!("tokio runtime build failed: {e}"))?;
@@ -283,33 +274,40 @@ mod windows_impl {
     /// OS threads — one per event type — so neither subscription starves the
     /// other.
     fn watch_blocking(app: tauri::AppHandle) -> Result<(), WMIError> {
-        // Build the WQL event queries.
-        let create_wql = "SELECT * FROM __InstanceCreationEvent WITHIN 2 \
-                           WHERE TargetInstance ISA 'Win32_DiskDrive'";
-        let delete_wql = "SELECT * FROM __InstanceDeletionEvent WITHIN 2 \
-                           WHERE TargetInstance ISA 'Win32_DiskDrive'";
-
-        // Each subscription needs its own COM + WMI connection because WMI
-        // connections are not Send.
-        let com_create = COMLibrary::new()?;
-        let wmi_create = WMIConnection::new(com_create)?;
-        let creation_iter = wmi_create.notification::<DiskEvent>(create_wql)?;
-
-        let com_delete = COMLibrary::new()?;
-        let wmi_delete = WMIConnection::new(com_delete)?;
-        let deletion_iter = wmi_delete.notification::<DiskEvent>(delete_wql)?;
-
+        // WMI connections are COM-based and !Send — they must be created on the
+        // thread that will use them. We spawn two threads upfront and let each
+        // initialise its own COM + WMI connection and subscribe to events.
         let app_create = app.clone();
-        let create_thread =
-            std::thread::spawn(move || handle_creation_events(creation_iter, app_create));
+        let create_thread = std::thread::spawn(move || {
+            let com = COMLibrary::new()?;
+            let wmi = WMIConnection::new(com)?;
+            let iter = wmi.raw_notification::<DiskEvent>(
+                "SELECT * FROM __InstanceCreationEvent WITHIN 2 \
+                 WHERE TargetInstance ISA 'Win32_DiskDrive'",
+            )?;
+            handle_creation_events(iter, app_create);
+            Ok::<(), WMIError>(())
+        });
 
         let app_delete = app;
-        let delete_thread =
-            std::thread::spawn(move || handle_deletion_events(deletion_iter, app_delete));
+        let delete_thread = std::thread::spawn(move || {
+            let com = COMLibrary::new()?;
+            let wmi = WMIConnection::new(com)?;
+            let iter = wmi.raw_notification::<DiskEvent>(
+                "SELECT * FROM __InstanceDeletionEvent WITHIN 2 \
+                 WHERE TargetInstance ISA 'Win32_DiskDrive'",
+            )?;
+            handle_deletion_events(iter, app_delete);
+            Ok::<(), WMIError>(())
+        });
 
         // Block until both threads exit (they run indefinitely unless WMI errors).
-        let _ = create_thread.join();
-        let _ = delete_thread.join();
+        if let Err(e) = create_thread.join() {
+            eprintln!("[usb] creation watcher thread panicked: {e:?}");
+        }
+        if let Err(e) = delete_thread.join() {
+            eprintln!("[usb] deletion watcher thread panicked: {e:?}");
+        }
 
         Ok(())
     }
@@ -420,6 +418,69 @@ mod windows_impl {
     // Eject
     // -----------------------------------------------------------------------
 
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+
+    /// RAII wrapper that closes a Win32 `HANDLE` on drop.
+    ///
+    /// This eliminates the need for manual `CloseHandle` calls and ensures the
+    /// handle is always released, even on early return from errors.
+    struct OwnedHandle(HANDLE);
+
+    impl OwnedHandle {
+        /// Open a raw volume device for exclusive I/O control.
+        ///
+        /// # Safety
+        /// `CreateFileW` is an FFI call with complex preconditions; this
+        /// function is the single unsafe boundary in the eject path.
+        fn open_volume(volume_path: &[u16]) -> Result<Self, String> {
+            use windows::core::PCWSTR;
+            use windows::Win32::Storage::FileSystem::{
+                CreateFileW, FILE_FLAG_NO_BUFFERING, FILE_SHARE_READ, FILE_SHARE_WRITE,
+                OPEN_EXISTING,
+            };
+            use windows::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
+
+            // SAFETY: `volume_path` is a valid null-terminated wide string
+            // pointing to a volume path (`\\.\X:`). The windows-rs v0.58 wrapper
+            // checks for INVALID_HANDLE_VALUE internally and returns Err on failure.
+            // The returned handle is immediately wrapped in `OwnedHandle` so it
+            // cannot be leaked.
+            let handle = unsafe {
+                CreateFileW(
+                    PCWSTR(volume_path.as_ptr()),
+                    GENERIC_READ.0 | GENERIC_WRITE.0,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    None,
+                    OPEN_EXISTING,
+                    FILE_FLAG_NO_BUFFERING,
+                    None,
+                )
+            }
+            .map_err(|e| format!("Could not open volume: {e}"))?;
+
+            Ok(OwnedHandle(handle))
+        }
+
+        /// Issue a zero-argument `DeviceIoControl` call on this handle.
+        fn ioctl(&self, code: u32, error_msg: &str) -> Result<(), String> {
+            use windows::Win32::System::IO::DeviceIoControl;
+            // SAFETY: `self.0` is a valid, open volume handle obtained from
+            // `open_volume`. The ioctl codes used here (FSCTL_LOCK_VOLUME,
+            // FSCTL_DISMOUNT_VOLUME, IOCTL_STORAGE_EJECT_MEDIA) all take no
+            // input/output buffer, which we express with `None` / 0.
+            unsafe { DeviceIoControl(self.0, code, None, 0, None, 0, None, None) }
+                .map_err(|e| format!("{error_msg}: {e}"))
+        }
+    }
+
+    impl Drop for OwnedHandle {
+        fn drop(&mut self) {
+            // SAFETY: `self.0` is a valid handle that has not yet been closed
+            // (we never duplicate or close it manually elsewhere).
+            unsafe { let _ = CloseHandle(self.0); }
+        }
+    }
+
     /// Safely ejects the volume at `drive_letter` (e.g. `"E:"`).
     ///
     /// Sequence:
@@ -427,74 +488,36 @@ mod windows_impl {
     /// 2. `FSCTL_LOCK_VOLUME`   — exclusive lock; fails when files are open.
     /// 3. `FSCTL_DISMOUNT_VOLUME` — flush and unmount the filesystem.
     /// 4. `IOCTL_STORAGE_EJECT_MEDIA` — signal hardware to eject.
-    /// 5. Close handle (automatic on drop via `CloseHandle`).
+    /// 5. Handle closed automatically when `OwnedHandle` drops.
     pub fn eject_ereader(drive_letter: &str) -> Result<(), String> {
-        use windows::core::PCWSTR;
-        use windows::Win32::Storage::FileSystem::{
-            CreateFileW, FILE_ACCESS_RIGHTS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
-        };
-        use windows::Win32::System::IO::DeviceIoControl;
         use windows::Win32::System::Ioctl::{
             FSCTL_DISMOUNT_VOLUME, FSCTL_LOCK_VOLUME, IOCTL_STORAGE_EJECT_MEDIA,
         };
-        use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE, INVALID_HANDLE_VALUE};
 
         // Build the volume path: `\\.\E:` encoded as a null-terminated wide string.
         // Strip any trailing backslash that may be present in the drive letter.
         let letter = drive_letter.trim_end_matches('\\');
-        let volume_path: Vec<u16> = format!(r"\\.\{}", letter)
+        let volume_path: Vec<u16> = format!(r"\\.\{letter}")
             .encode_utf16()
             .chain(std::iter::once(0u16))
             .collect();
 
-        // Step 1: open the volume.
-        let handle = unsafe {
-            CreateFileW(
-                PCWSTR(volume_path.as_ptr()),
-                FILE_ACCESS_RIGHTS(GENERIC_READ.0 | GENERIC_WRITE.0),
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                None,
-                OPEN_EXISTING,
-                Default::default(),
-                None,
-            )
-        }
-        .map_err(|e| format!("Could not open volume '{}': {}", letter, e))?;
+        let handle = OwnedHandle::open_volume(&volume_path)
+            .map_err(|e| format!("Could not open volume '{letter}': {e}"))?;
 
-        if handle == INVALID_HANDLE_VALUE {
-            return Err(format!("Could not open volume '{}': invalid handle", letter));
-        }
-
-        // Helper: run a zero-argument DeviceIoControl call.
-        let ioctl = |code: u32, error_msg: &str| -> Result<(), String> {
-            unsafe {
-                DeviceIoControl(handle, code, None, 0, None, 0, None, None)
-            }
-            .map_err(|e| format!("{}: {}", error_msg, e))
-        };
-
-        // Step 2: lock the volume — fails if any process has files open.
-        ioctl(FSCTL_LOCK_VOLUME, "placeholder").map_err(|_| {
+        // Lock — fails if any process has files open.
+        handle.ioctl(FSCTL_LOCK_VOLUME, "placeholder").map_err(|_| {
             "Could not lock device — close any open files on the eReader and try again"
                 .to_string()
         })?;
 
-        // Step 3: dismount / flush the filesystem.
-        if let Err(e) = ioctl(FSCTL_DISMOUNT_VOLUME, "Could not dismount volume") {
-            // Best-effort close before returning the error.
-            unsafe { let _ = CloseHandle(handle); }
-            return Err(e);
-        }
+        // Dismount / flush the filesystem.
+        handle.ioctl(FSCTL_DISMOUNT_VOLUME, "Could not dismount volume")?;
 
-        // Step 4: eject the media.
-        if let Err(e) = ioctl(IOCTL_STORAGE_EJECT_MEDIA, "Could not eject media") {
-            unsafe { let _ = CloseHandle(handle); }
-            return Err(e);
-        }
+        // Signal hardware to eject.
+        handle.ioctl(IOCTL_STORAGE_EJECT_MEDIA, "Could not eject media")?;
 
-        // Step 5: close the handle.
-        unsafe { let _ = CloseHandle(handle); }
-
+        // `handle` drops here, automatically closing the Win32 HANDLE.
         Ok(())
     }
 }

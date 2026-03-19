@@ -22,7 +22,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     # WebKitWebDriver — required by tauri-driver for E2E tests on Linux
     webkit2gtk-driver \
+    # clang + lld — required by cargo-xwin to cross-compile for Windows MSVC
+    clang \
+    lld \
+    llvm \
     && rm -rf /var/lib/apt/lists/*
+
+# Ensure LLVM tools (clang-cl, lld-link, llvm-lib) are on PATH for cargo-xwin.
+# clang-cl is clang invoked as the MSVC-compatible driver; symlink it explicitly.
+RUN ln -s /usr/lib/llvm-14/bin/clang-14 /usr/lib/llvm-14/bin/clang-cl
+ENV PATH="/usr/lib/llvm-14/bin:${PATH}"
 
 # Node.js LTS (v22) — matches the developer's local version
 ARG NODE_VERSION=22
@@ -32,6 +41,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
 
 # Rust stable toolchain (base image ships stable, but pin explicitly)
 RUN rustup update stable && rustup default stable && rustup component add clippy
+
+# Windows cross-compilation support via cargo-xwin
+RUN rustup target add x86_64-pc-windows-msvc && \
+    cargo install cargo-xwin --locked
 
 # cargo-tauri CLI and tauri-driver (WebDriver server for E2E tests)
 RUN cargo install tauri-cli --version "^2" --locked && \

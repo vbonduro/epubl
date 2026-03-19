@@ -33,11 +33,14 @@ docker run --rm \
     echo "=== Installing npm dependencies ==="
     npm install --prefer-offline 2>&1 | tail -3
 
-    echo "=== Running Rust unit and integration tests ==="
+    echo "=== Running Rust unit and integration tests (Linux) ==="
     cargo test --manifest-path src-tauri/Cargo.toml 2>&1
 
-    echo "=== Running clippy ==="
+    echo "=== Running clippy (Linux) ==="
     cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings 2>&1
+
+    echo "=== Windows CI checks (cargo-xwin) ==="
+    bash scripts/ci-windows.sh 2>&1
 
     echo "=== Building frontend ==="
     npm run build 2>&1 | tail -5
