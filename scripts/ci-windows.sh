@@ -4,12 +4,6 @@
 #   docker run --rm -v "$PWD:/workspaces/epubl" -w /workspaces/epubl epubl-dev bash scripts/ci-windows.sh
 #
 # Mirrors .github/workflows/ci.yml job: "Rust check & clippy (Windows target)"
-#
-# NOTE: cargo-xwin handles pure-Rust cross-compilation well but some crates with
-# C build scripts (ring, zstd-sys) require native MSVC cl.exe and cannot be
-# compiled via clang-cl. We therefore check only the library crate with
-# --no-default-features to avoid pulling in the updater (ring dependency).
-# The full build is validated in CI on windows-latest runners.
 set -euo pipefail
 
 TARGET=x86_64-pc-windows-msvc
@@ -17,18 +11,18 @@ MANIFEST=src-tauri/Cargo.toml
 
 echo "=== Windows CI (local) — target: $TARGET ==="
 
-echo "--- cargo check --lib (Windows-specific Rust code) ---"
-# --no-default-features excludes tauri-plugin-updater which brings in ring/zstd-sys
-# Those crates require native MSVC cl.exe and can only fully build in CI.
-cargo xwin check --lib --target "$TARGET" --manifest-path "$MANIFEST" \
-  --no-default-features 2>&1
+# tauri::generate_context!() checks that frontendDist exists at compile time.
+# Create a stub so cargo check doesn't panic before the frontend is built.
+mkdir -p dist
+touch dist/index.html
 
-echo "--- cargo clippy --lib (Windows-specific Rust code) ---"
-cargo xwin clippy --lib --target "$TARGET" --manifest-path "$MANIFEST" \
-  --no-default-features -- -D warnings 2>&1
+echo "--- cargo check ---"
+cargo xwin check --target "$TARGET" --manifest-path "$MANIFEST"
 
-echo "=== Windows CI checks passed ==="
+echo "--- cargo clippy ---"
+cargo xwin clippy --target "$TARGET" --manifest-path "$MANIFEST" -- -D warnings
+
+echo "=== All Windows CI checks passed ==="
 echo ""
-echo "NOTE: Full 'cargo check' and 'cargo test --lib' against the Windows target"
-echo "require native MSVC (cl.exe) for ring/zstd-sys and run only in CI."
-echo "Push to trigger the full check on windows-latest."
+echo "NOTE: 'cargo test --lib' is not run locally because cross-compiled Windows"
+echo "binaries require Wine to execute. Tests run natively in CI on windows-latest."

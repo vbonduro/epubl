@@ -38,6 +38,11 @@ jobs:
         # nothing extra to install on windows-latest.
         run: echo "No extra system deps required on Windows runner"
 
+      - name: Create stub dist for generate_context!()
+        # tauri::generate_context!() checks that frontendDist exists at compile
+        # time. We don't run the frontend build here, so create a minimal stub.
+        run: mkdir -p dist && echo "" > dist/index.html
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --target x86_64-pc-windows-msvc
