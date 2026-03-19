@@ -45,7 +45,7 @@ pub fn scan_folder(folder_path: &str) -> Result<Vec<EpubInfo>, String> {
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let path = entry.path();
-            if path.extension()?.to_ascii_lowercase() != "epub" {
+            if !path.extension()?.eq_ignore_ascii_case("epub") {
                 return None;
             }
             let filename = path.file_name()?.to_string_lossy().into_owned();
