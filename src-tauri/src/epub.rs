@@ -145,13 +145,78 @@ fn extract_xml_text(xml: &str, tag: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Tauri command
+// Diff logic
+// ---------------------------------------------------------------------------
+
+/// Result of comparing the local epub folder against the eReader's folder.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffResult {
+    /// Books present locally but not on the eReader — candidates to copy.
+    pub to_copy: Vec<EpubInfo>,
+    /// Books present on both local and eReader (matched by filename).
+    pub up_to_date: Vec<EpubInfo>,
+}
+
+/// Compares `local_folder` against `device_folder` and returns which epub
+/// files need to be copied and which are already present on the device.
+///
+/// Comparison is by filename only — if a file with the same name exists on
+/// the device it is considered up-to-date regardless of size or content.
+///
+/// Returns an error if either folder cannot be read.
+pub fn diff_folders(local_folder: &str, device_folder: &str) -> Result<DiffResult, String> {
+    let local_books = scan_folder(local_folder)?;
+
+    // Collect device filenames into a set for O(1) lookup.
+    let device_dir = std::path::Path::new(device_folder);
+    let device_entries = fs::read_dir(device_dir)
+        .map_err(|e| format!("Cannot read device folder {device_folder:?}: {e}"))?;
+
+    let device_filenames: std::collections::HashSet<String> = device_entries
+        .filter_map(|e| {
+            let e = e.ok()?;
+            let path = e.path();
+            if path.extension()?.eq_ignore_ascii_case("epub") {
+                Some(path.file_name()?.to_string_lossy().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut to_copy = Vec::new();
+    let mut up_to_date = Vec::new();
+
+    for book in local_books {
+        if device_filenames.contains(&book.filename) {
+            up_to_date.push(book);
+        } else {
+            to_copy.push(book);
+        }
+    }
+
+    Ok(DiffResult { to_copy, up_to_date })
+}
+
+// ---------------------------------------------------------------------------
+// Tauri commands
 // ---------------------------------------------------------------------------
 
 /// Returns the list of epub files in the given folder.
 #[tauri::command]
 pub fn list_epubs(folder_path: String) -> Result<Vec<EpubInfo>, String> {
     scan_folder(&folder_path)
+}
+
+/// Compares the local epub folder against the eReader folder and returns
+/// which books need to be copied and which are already present.
+#[tauri::command]
+pub fn diff_epubs(
+    local_folder: String,
+    device_folder: String,
+) -> Result<DiffResult, String> {
+    diff_folders(&local_folder, &device_folder)
 }
 
 // ---------------------------------------------------------------------------

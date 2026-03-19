@@ -15,6 +15,7 @@ pub fn run() {
             config::get_config,
             config::set_config,
             epub::list_epubs,
+            epub::diff_epubs,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
