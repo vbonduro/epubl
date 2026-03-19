@@ -6,17 +6,21 @@
 //   macOS   : ~/Library/Application Support/epubl/config.toml
 //
 // Fields:
-//   epub_folder   – Absolute path to the local folder that contains the user's
-//                   epub files.  Must be set before the app can sync.
+//   epub_folder    – Absolute path to the local folder that contains the user's
+//                    epub files.  Must be set before the app can sync.
 //
-//   ereader_path  – Optional override for the eReader mount path.
-//                   None (omitted in TOML) means auto-detection is used.
+//   ereader_path   – Optional override for the eReader mount path.
+//                    None (omitted in TOML) means auto-detection is used.
 //
-//   bookstore_url – URL opened when the user clicks the in-app bookstore link.
-//                   Defaults to "https://www.amazon.com/ebooks".
+//   bookstore_url  – URL opened when the user clicks the in-app bookstore link.
+//                    Defaults to "https://www.amazon.com/ebooks".
 //
-//   first_run     – true until the user completes the setup wizard.
-//                   Defaults to true; set to false by the frontend after setup.
+//   support_email  – Email address pre-filled when the user clicks "Report problem".
+//                    Set during the first-run wizard by the person who installs
+//                    the app. Defaults to empty string (button hidden when unset).
+//
+//   first_run      – true until the user completes the setup wizard.
+//                    Defaults to true; set to false by the frontend after setup.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -28,6 +32,7 @@ pub struct Config {
     pub epub_folder: String,
     pub ereader_path: Option<String>,
     pub bookstore_url: String,
+    pub support_email: String,
     pub first_run: bool,
 }
 
@@ -37,6 +42,7 @@ impl Default for Config {
             epub_folder: String::new(),
             ereader_path: None,
             bookstore_url: String::from("https://www.amazon.com/ebooks"),
+            support_email: String::new(),
             first_run: true,
         }
     }
@@ -161,6 +167,7 @@ mod tests {
             epub_folder: "/home/user/books".to_string(),
             ereader_path: Some("/media/kindle".to_string()),
             bookstore_url: "https://example.com".to_string(),
+            support_email: "help@example.com".to_string(),
             first_run: false,
         };
 
@@ -242,6 +249,28 @@ mod tests {
 
         let loaded = load_from_path(&path).unwrap();
         assert_eq!(loaded.bookstore_url, "https://books.example.com");
+    }
+
+    #[test]
+    fn support_email_defaults_to_empty_string() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let config = load_from_path(&path).unwrap();
+        assert_eq!(config.support_email, "");
+    }
+
+    #[test]
+    fn support_email_survives_round_trip() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut config = Config::default();
+        config.support_email = "support@example.com".to_string();
+        save_to_path(&path, &config).unwrap();
+
+        let loaded = load_from_path(&path).unwrap();
+        assert_eq!(loaded.support_email, "support@example.com");
     }
 
     #[test]

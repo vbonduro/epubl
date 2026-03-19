@@ -12,6 +12,7 @@
     epubFolder: string;
     ereaderPath: string | null;
     bookstoreUrl: string;
+    supportEmail: string;
     firstRun: boolean;
   }
 
@@ -37,6 +38,7 @@
 
   // Wizard state
   let wizardFolder = $state("");
+  let wizardEmail = $state("");
   let wizardBusy = $state(false);
   let wizardError = $state<string | null>(null);
 
@@ -68,7 +70,12 @@
     wizardBusy = true;
     wizardError = null;
     try {
-      const updated: Config = { ...config!, epubFolder: wizardFolder, firstRun: false };
+      const updated: Config = {
+        ...config!,
+        epubFolder: wizardFolder,
+        supportEmail: wizardEmail.trim(),
+        firstRun: false,
+      };
       await invoke("set_config", { config: updated });
       config = updated;
       showWizard = false;
@@ -78,6 +85,21 @@
     } finally {
       wizardBusy = false;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Report problem
+  // ---------------------------------------------------------------------------
+
+  function reportProblem(context: string) {
+    const email = config?.supportEmail;
+    if (!email) return;
+    const subject = encodeURIComponent("epubl problem report");
+    const body = encodeURIComponent(
+      `Hi,\n\nI ran into a problem with epubl:\n\n${context}\n\n` +
+      `-- App info --\nOS: Windows\n`
+    );
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_self");
   }
 
   // ---------------------------------------------------------------------------
@@ -178,6 +200,19 @@
         <button class="btn" onclick={pickFolder}>Browse…</button>
       </div>
 
+      <p class="wizard-intro" style="margin-top: 8px;">
+        Support email — where should problem reports be sent?
+      </p>
+      <div class="wizard-row">
+        <input
+          class="wizard-input"
+          type="email"
+          placeholder="your@email.com (optional)"
+          bind:value={wizardEmail}
+          aria-label="support email address"
+        />
+      </div>
+
       {#if wizardError}
         <p class="wizard-error">{wizardError}</p>
       {/if}
@@ -213,6 +248,11 @@
 
         {#if libraryError}
           <p class="error-text">{libraryError}</p>
+          {#if config?.supportEmail}
+            <button class="btn btn-report" onclick={() => reportProblem(`Library error: ${libraryError}`)}>
+              Report problem
+            </button>
+          {/if}
         {:else if epubs.length === 0}
           <p class="placeholder">No epub files found in your library folder.</p>
         {:else}
@@ -245,6 +285,11 @@
 
         {#if ejectError}
           <p class="eject-error">{ejectError}</p>
+          {#if config?.supportEmail}
+            <button class="btn btn-report" onclick={() => reportProblem(`Eject error: ${ejectError}`)}>
+              Report problem
+            </button>
+          {/if}
         {/if}
 
         {#if config?.bookstoreUrl}

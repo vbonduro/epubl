@@ -102,6 +102,19 @@ html, body {
   background: #235a96;
 }
 
+.btn-report {
+  margin-top: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-color: #5a3a3a;
+  background: #2a1a1a;
+  color: #e57373;
+}
+
+.btn-report:hover {
+  background: #3a2020;
+}
+
 /* Device badge */
 .badge {
   display: inline-block;

@@ -10,6 +10,7 @@ fn config_round_trip_persists_all_fields() {
         epub_folder: "/home/user/books".to_string(),
         ereader_path: Some("/media/kindle".to_string()),
         bookstore_url: "https://custom.bookstore.example.com".to_string(),
+        support_email: "help@example.com".to_string(),
         first_run: false,
     };
 
@@ -40,6 +41,7 @@ fn config_round_trip_overwrites_previous_save() {
         epub_folder: "/first/path".to_string(),
         ereader_path: None,
         bookstore_url: "https://first.example.com".to_string(),
+        support_email: String::new(),
         first_run: true,
     };
     save_to_path(&path, &first).unwrap();
@@ -48,6 +50,7 @@ fn config_round_trip_overwrites_previous_save() {
         epub_folder: "/second/path".to_string(),
         ereader_path: Some("/media/kobo".to_string()),
         bookstore_url: "https://second.example.com".to_string(),
+        support_email: "me@example.com".to_string(),
         first_run: false,
     };
     save_to_path(&path, &second).unwrap();
