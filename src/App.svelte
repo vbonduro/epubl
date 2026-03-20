@@ -58,6 +58,8 @@
 
   // Sync
   let syncBusy = $state(false);
+  let syncError = $state<string | null>(null);
+  let syncProgress = $state<{ filename: string; filesDone: number; filesTotal: number; bytesCopied: number; bytesTotal: number } | null>(null);
 
   // Update banner
   let updateVersion = $state<string | null>(null);
@@ -157,11 +159,36 @@
   // Sync
   // ---------------------------------------------------------------------------
 
-  function handleSync() {
-    if (selected.size === 0) return;
+  async function handleSync() {
+    if (selected.size === 0 || !config?.epubFolder || !device) return;
     syncBusy = true;
-    // TODO: invoke Tauri file copy command (epubl-iv7)
-    setTimeout(() => (syncBusy = false), 1500);
+    syncError = null;
+    syncProgress = null;
+
+    const unlistenProgress = listen<{ filename: string; filesDone: number; filesTotal: number; bytesCopied: number; bytesTotal: number }>(
+      "copy-progress",
+      (e) => { syncProgress = e.payload; }
+    );
+    const unlistenComplete = listen("copy-complete", () => {
+      syncBusy = false;
+      syncProgress = null;
+      loadDiff();
+    });
+
+    try {
+      await invoke("copy_epubs", {
+        filenames: [...selected],
+        localFolder: config.epubFolder,
+        deviceFolder: device.driveLetter + "/documents",
+      });
+    } catch (err) {
+      syncError = String(err);
+      syncBusy = false;
+      syncProgress = null;
+    } finally {
+      unlistenProgress.then((fn) => fn());
+      unlistenComplete.then((fn) => fn());
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -359,6 +386,19 @@
       <button class="btn btn-eject" onclick={handleEject} disabled={!device}>
         Eject
       </button>
+      {#if syncProgress}
+        <span class="sync-progress">
+          {syncProgress.filesDone}/{syncProgress.filesTotal} — {syncProgress.filename}
+        </span>
+      {/if}
+      {#if syncError}
+        <span class="sync-error">{syncError}</span>
+        {#if config?.supportEmail}
+          <button class="btn btn-report" onclick={() => reportProblem(`Sync error: ${syncError}`)}>
+            Report problem
+          </button>
+        {/if}
+      {/if}
     </footer>
   </div>
 {/if}

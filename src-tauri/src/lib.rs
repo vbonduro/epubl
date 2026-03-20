@@ -1,4 +1,5 @@
 pub mod config;
+pub mod copy;
 pub mod epub;
 pub mod usb;
 pub mod updater;
@@ -16,6 +17,7 @@ pub fn run() {
             config::set_config,
             epub::list_epubs,
             epub::diff_epubs,
+            copy::copy_epubs,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
