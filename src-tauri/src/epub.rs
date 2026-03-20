@@ -211,12 +211,45 @@ pub fn list_epubs(folder_path: String) -> Result<Vec<EpubInfo>, String> {
 
 /// Compares the local epub folder against the eReader folder and returns
 /// which books need to be copied and which are already present.
+#[cfg(not(feature = "e2e-mock"))]
 #[tauri::command]
 pub fn diff_epubs(
     local_folder: String,
     device_folder: String,
 ) -> Result<DiffResult, String> {
     diff_folders(&local_folder, &device_folder)
+}
+
+/// Mock version: returns a fixed diff so E2E tests can assert on the UI
+/// without needing a real epub folder or eReader.
+#[cfg(feature = "e2e-mock")]
+#[tauri::command]
+pub fn diff_epubs(
+    _local_folder: String,
+    _device_folder: String,
+) -> Result<DiffResult, String> {
+    Ok(DiffResult {
+        to_copy: vec![
+            EpubInfo {
+                filename: "mock-book-one.epub".to_string(),
+                title: "Mock Book One".to_string(),
+                author: "Mock Author".to_string(),
+                size_bytes: 1024,
+            },
+            EpubInfo {
+                filename: "mock-book-two.epub".to_string(),
+                title: "Mock Book Two".to_string(),
+                author: "Mock Author".to_string(),
+                size_bytes: 2048,
+            },
+        ],
+        up_to_date: vec![EpubInfo {
+            filename: "already-synced.epub".to_string(),
+            title: "Already Synced".to_string(),
+            author: "Mock Author".to_string(),
+            size_bytes: 512,
+        }],
+    })
 }
 
 // ---------------------------------------------------------------------------

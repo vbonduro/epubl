@@ -29,6 +29,11 @@
     sizeBytes: number;
   }
 
+  interface DiffResult {
+    toCopy: EpubInfo[];
+    upToDate: EpubInfo[];
+  }
+
   // ---------------------------------------------------------------------------
   // App state
   // ---------------------------------------------------------------------------
@@ -42,8 +47,9 @@
   let wizardBusy = $state(false);
   let wizardError = $state<string | null>(null);
 
-  // Library
-  let epubs = $state<EpubInfo[]>([]);
+  // Library / diff
+  let diff = $state<DiffResult | null>(null);
+  let selected = $state<Set<string>>(new Set());
   let libraryError = $state<string | null>(null);
 
   // Device
@@ -79,7 +85,7 @@
       await invoke("set_config", { config: updated });
       config = updated;
       showWizard = false;
-      await loadLibrary();
+      await loadDiff();
     } catch (err) {
       wizardError = String(err);
     } finally {
@@ -103,17 +109,33 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Library
+  // Library / diff
   // ---------------------------------------------------------------------------
 
-  async function loadLibrary() {
-    if (!config?.epubFolder) return;
+  async function loadDiff() {
+    if (!config?.epubFolder || !device) return;
     try {
-      epubs = await invoke<EpubInfo[]>("list_epubs", { folderPath: config.epubFolder });
+      const result = await invoke<DiffResult>("diff_epubs", {
+        localFolder: config.epubFolder,
+        deviceFolder: device.driveLetter + "/documents",
+      });
+      diff = result;
+      // Select all new books by default
+      selected = new Set(result.toCopy.map((b) => b.filename));
       libraryError = null;
     } catch (err) {
       libraryError = String(err);
     }
+  }
+
+  function toggleBook(filename: string) {
+    const next = new Set(selected);
+    if (next.has(filename)) {
+      next.delete(filename);
+    } else {
+      next.add(filename);
+    }
+    selected = next;
   }
 
   // ---------------------------------------------------------------------------
@@ -136,8 +158,9 @@
   // ---------------------------------------------------------------------------
 
   function handleSync() {
+    if (selected.size === 0) return;
     syncBusy = true;
-    // TODO: invoke Tauri sync command (epubl-iv7)
+    // TODO: invoke Tauri file copy command (epubl-iv7)
     setTimeout(() => (syncBusy = false), 1500);
   }
 
@@ -152,23 +175,26 @@
         if (cfg.firstRun) {
           showWizard = true;
         } else {
-          loadLibrary();
+          loadDiff();
         }
       })
       .catch((err) => console.error("[epubl] get_config failed:", err));
 
     invoke<EReaderInfo[]>("get_connected_ereaders")
-      .then((readers) => { device = readers[0] ?? null; })
+      .then((readers) => {
+        device = readers[0] ?? null;
+        if (device) loadDiff();
+      })
       .catch((err) => console.error("[epubl] get_connected_ereaders failed:", err));
 
     const unlistenUpdate = listen<{ version: string }>("update-available", (e) => {
       updateVersion = e.payload.version;
     });
     const unlistenConnected = listen<EReaderInfo>("ereader-connected", (e) => {
-      device = e.payload; ejectError = null;
+      device = e.payload; ejectError = null; loadDiff();
     });
     const unlistenDisconnected = listen("ereader-disconnected", () => {
-      device = null; ejectError = null;
+      device = null; ejectError = null; diff = null; selected = new Set();
     });
 
     return () => {
@@ -253,16 +279,39 @@
               Report problem
             </button>
           {/if}
-        {:else if epubs.length === 0}
+        {:else if !device}
+          <p class="placeholder">Connect your eReader to see what needs syncing.</p>
+        {:else if !diff}
+          <p class="placeholder">Loading…</p>
+        {:else if diff.toCopy.length === 0 && diff.upToDate.length === 0}
           <p class="placeholder">No epub files found in your library folder.</p>
         {:else}
           <ul class="epub-list">
-            {#each epubs as book (book.filename)}
-              <li class="epub-item">
-                <span class="epub-title">{book.title}</span>
+            {#each diff.toCopy as book (book.filename)}
+              <li class="epub-item epub-item-new">
+                <label class="epub-label">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(book.filename)}
+                    onchange={() => toggleBook(book.filename)}
+                  />
+                  <span class="epub-title">{book.title}</span>
+                </label>
                 {#if book.author}
                   <span class="epub-author">{book.author}</span>
                 {/if}
+              </li>
+            {/each}
+            {#each diff.upToDate as book (book.filename)}
+              <li class="epub-item epub-item-synced">
+                <label class="epub-label">
+                  <input type="checkbox" disabled />
+                  <span class="epub-title">{book.title}</span>
+                </label>
+                {#if book.author}
+                  <span class="epub-author">{book.author}</span>
+                {/if}
+                <span class="synced-badge">Synced</span>
               </li>
             {/each}
           </ul>
@@ -304,8 +353,8 @@
     </div>
 
     <footer class="bottom-bar">
-      <button class="btn btn-sync" onclick={handleSync} disabled={syncBusy}>
-        {syncBusy ? "Syncing…" : "Sync"}
+      <button class="btn btn-sync" onclick={handleSync} disabled={syncBusy || selected.size === 0}>
+        {syncBusy ? "Syncing…" : `Sync${selected.size > 0 ? ` (${selected.size})` : ''}`}
       </button>
       <button class="btn btn-eject" onclick={handleEject} disabled={!device}>
         Eject

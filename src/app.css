@@ -164,12 +164,32 @@ html, body {
   padding: 8px;
   border-radius: 4px;
   border: 1px solid #2a2a2a;
+}
+
+.epub-item-new { border-color: #1a3a5a; }
+.epub-item-new:hover { background: #1a2a3a; }
+.epub-item-synced { opacity: 0.45; }
+
+.epub-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
-.epub-item:hover { background: #232323; }
+.epub-item-synced .epub-label { cursor: default; }
+
 .epub-title { font-size: 13px; }
-.epub-author { font-size: 11px; color: #888; margin-top: 2px; }
+.epub-author { font-size: 11px; color: #888; margin-top: 2px; margin-left: 24px; }
+
+.synced-badge {
+  font-size: 10px;
+  color: #4caf50;
+  margin-left: 24px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
 .error-text { color: #e57373; font-size: 12px; }
 
