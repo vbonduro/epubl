@@ -127,15 +127,37 @@ pub fn save(app: &tauri::AppHandle, config: &Config) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 /// Tauri command: returns the current config, loading it from disk.
+#[cfg(not(feature = "e2e-mock"))]
 #[tauri::command]
 pub fn get_config(app: tauri::AppHandle) -> Result<Config, String> {
     load(&app)
 }
 
+/// Mock version: returns a pre-configured state so E2E tests skip the wizard.
+#[cfg(feature = "e2e-mock")]
+#[tauri::command]
+pub fn get_config(_app: tauri::AppHandle) -> Result<Config, String> {
+    Ok(Config {
+        epub_folder: "/mock/epub/folder".to_string(),
+        ereader_path: None,
+        bookstore_url: String::from("https://www.amazon.com/ebooks"),
+        support_email: String::new(),
+        first_run: false,
+    })
+}
+
 /// Tauri command: persists the supplied config to disk.
+#[cfg(not(feature = "e2e-mock"))]
 #[tauri::command]
 pub fn set_config(app: tauri::AppHandle, config: Config) -> Result<(), String> {
     save(&app, &config)
+}
+
+/// Mock version: no-op so E2E tests don't write to disk.
+#[cfg(feature = "e2e-mock")]
+#[tauri::command]
+pub fn set_config(_app: tauri::AppHandle, _config: Config) -> Result<(), String> {
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
