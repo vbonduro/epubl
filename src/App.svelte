@@ -437,7 +437,7 @@
       <div class="wizard-header-inner">
         {@render bookOpenIcon("header-icon")}
         <div>
-          <h1>Old People Loadin'</h1>
+          <h1>epubl</h1>
           <p class="header-sub">This will help ya load your books bud.</p>
         </div>
       </div>
@@ -514,7 +514,7 @@
     <div class="header-inner">
       {@render bookOpenIcon("header-icon")}
       <div>
-        <h1>Old People Loadin'</h1>
+        <h1>epubl</h1>
         <p class="header-sub">This will help ya load your books bud.</p>
       </div>
     </div>

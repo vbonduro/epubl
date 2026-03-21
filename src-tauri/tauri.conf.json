@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Old People Loadin",
+  "productName": "epubl",
   "version": "0.1.0",
   "identifier": "dev.epubl.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Old People Loadin'",
+        "title": "epubl",
         "width": 900,
         "height": 600,
         "minWidth": 900,
@@ -43,7 +43,7 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "startMenuFolder": "Old People Loadin"
+        "startMenuFolder": "epubl"
       }
     }
   },

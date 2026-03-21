@@ -1,4 +1,4 @@
-# Old People Loadin' 👵🍵
+# epubl 👵🍵
 
 A dead-simple Windows desktop app for loading epub books onto a Kobo, Kindle, or any USB eReader. Built for non-technical users who just want to read their books.
 

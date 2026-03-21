@@ -62,7 +62,7 @@ jobs:
         with:
           # tagName is taken from the git tag (e.g. v0.1.0).
           tagName: ${{ github.ref_name }}
-          releaseName: "Old People Loadin' ${{ github.ref_name }}"
+          releaseName: "epubl ${{ github.ref_name }}"
           releaseBody: |
             See [RELEASE.md](https://github.com/vbonduro/epubl/blob/main/RELEASE.md) for upgrade instructions.
           releaseDraft: false
