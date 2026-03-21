@@ -309,7 +309,7 @@ html, body {
 
 .device-model { font-weight: 600; color: #166534; font-size: 18px; }
 .device-drive { color: #6b7280; font-size: 18px; }
-.badge-connected { display: none; } /* Replaced by alert-connected visual, but class preserved for E2E */
+.badge-connected { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; } /* Visually hidden but displayed for E2E */
 .eject-error { color: #dc2626; font-size: 18px; margin-top: 8px; }
 
 .eject-row {
