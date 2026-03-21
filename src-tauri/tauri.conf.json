@@ -44,8 +44,7 @@
       "nsis": {
         "installMode": "currentUser",
         "startMenuFolder": "Old People Loadin",
-        "shortcutName": "Old People Loadin'",
-        "createDesktopShortcut": true
+        "shortcutName": "Old People Loadin'"
       }
     }
   },
