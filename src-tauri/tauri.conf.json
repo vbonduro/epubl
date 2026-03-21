@@ -43,8 +43,7 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "startMenuFolder": "Old People Loadin",
-        "shortcutName": "Old People Loadin'"
+        "startMenuFolder": "Old People Loadin"
       }
     }
   },
