@@ -51,7 +51,7 @@ pub(crate) mod identification {
         if pnp_upper.contains("VID_1949") {
             return "Kindle";
         }
-        if pnp_upper.contains("VID_2080") {
+        if pnp_upper.contains("VID_2080") || pnp_upper.contains("VID_4173") {
             return "Kobo";
         }
         if pnp_upper.contains("VID_0525") || pnp_upper.contains("VID_2899") {
@@ -603,8 +603,18 @@ mod tests {
     }
 
     #[test]
-    fn kobo_identified_by_vid() {
+    fn kobo_identified_by_vid_2080() {
         assert_eq!(identify_vendor("USB\\VID_2080&PID_0002", ""), "Kobo");
+    }
+
+    #[test]
+    fn kobo_identified_by_vid_4173() {
+        assert_eq!(identify_vendor("USB\\VID_4173&PID_0001", ""), "Kobo");
+    }
+
+    #[test]
+    fn kobo_identified_by_koboeread_model_name() {
+        assert_eq!(identify_vendor("USB\\VID_FFFF&PID_0000", "KOBOeReader"), "Kobo");
     }
 
     #[test]
