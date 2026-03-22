@@ -728,7 +728,7 @@
               {#each diff.up_to_date as book (book.filename)}
                 <li class="epub-item epub-item-synced">
                   <label class="epub-label">
-                    <input type="checkbox" checked disabled />
+                    <input type="checkbox" disabled />
                     {@render bookOpenIcon("epub-book-icon")}
                     <div class="epub-text">
                       <span class="epub-title">{book.title}</span>

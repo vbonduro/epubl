@@ -11,30 +11,31 @@ describe('Sync button', () => {
     ).catch(() => {/* non-mock build — tests will skip */})
   })
 
-  it('shows Syncing… label and is disabled during sync', async () => {
+  it('shows progress indicator during sync', async () => {
     const items = await $$('.epub-item-new')
     if (items.length === 0) return // non-mock build, skip
 
     const btn = await $('.btn-sync')
     await btn.click()
-    // Wait for the disabled state which indicates sync is in progress
+    // When syncBusy=true the button is replaced by the transfer-progress div
     await browser.waitUntil(
-      async () => await btn.getAttribute('disabled') !== null,
-      { timeout: 3000, interval: 100, timeoutMsg: 'Button never became disabled' }
+      async () => (await $$('.transfer-progress')).length > 0,
+      { timeout: 3000, interval: 100, timeoutMsg: 'Transfer progress indicator never appeared' }
     )
-    await expect(btn).toBeDisabled()
+    const progress = await $('.transfer-progress')
+    await expect(progress).toBeDisplayed()
   })
 
   it('returns to Load N Books label after operation completes', async () => {
     const items = await $$('.epub-item-new')
     if (items.length === 0) return // non-mock build, skip
 
-    const btn = await $('.btn-sync')
-    // Wait for sync to finish (mock takes ~900ms) plus buffer
+    // Wait for sync to finish — btn-sync reappears when syncBusy=false
     await browser.waitUntil(
-      async () => await btn.getAttribute('disabled') === null,
-      { timeout: 5000, interval: 200, timeoutMsg: 'Button never became enabled again' }
+      async () => (await $$('.btn-sync')).length > 0,
+      { timeout: 8000, interval: 200, timeoutMsg: 'Sync button never reappeared' }
     )
+    const btn = await $('.btn-sync')
     await expect(btn).not.toBeDisabled()
   })
 })
