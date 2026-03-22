@@ -3,3 +3,4 @@ target/
 dist/
 .env
 *.key
+pre-push.log

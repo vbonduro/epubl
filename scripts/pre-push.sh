@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Full test suite runner — executed by pre-commit in the pre-push stage.
 # All tests run inside the epubl-dev Docker image to match CI exactly.
+#
+# Docker output is written to a log file rather than streamed through the
+# pre-commit pipe, which avoids BlockingIOError on large output.
 set -euo pipefail
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+LOG_FILE="${REPO_ROOT}/pre-push.log"
+
 echo "[pre-push] Running all tests in devcontainer..."
+echo "[pre-push] Full output: ${LOG_FILE}"
 
 if ! command -v docker &>/dev/null; then
   echo "[pre-push] ERROR: Docker not found. Cannot run tests." >&2
@@ -15,13 +22,11 @@ if ! docker image inspect epubl-dev &>/dev/null; then
   docker build \
     -f .devcontainer/Dockerfile \
     -t epubl-dev \
-    . 2>&1 || {
-    echo "[pre-push] ERROR: Failed to build devcontainer image." >&2
+    . >"${LOG_FILE}" 2>&1 || {
+    echo "[pre-push] ERROR: Failed to build devcontainer image. See ${LOG_FILE}" >&2
     exit 1
   }
 fi
-
-REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 docker run --rm \
   -v "${REPO_ROOT}:/workspaces/epubl" \
@@ -55,6 +60,6 @@ docker run --rm \
     trap "kill $XVFB_PID 2>/dev/null || true" EXIT
     sleep 1
     DISPLAY=:99 EPUBL_BIN=./src-tauri/target/release/epubl npx wdio run wdio.conf.ts 2>&1
-  '
+  ' >"${LOG_FILE}" 2>&1
 
 echo "[pre-push] All tests passed."
