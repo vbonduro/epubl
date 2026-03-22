@@ -127,8 +127,8 @@
     if (!config?.epub_folder || !device) return;
     try {
       const result = await invoke<DiffResult>("diff_epubs", {
-        local_folder: config.epub_folder,
-        device_folder: device.drive_letter + "/documents",
+        localFolder: config.epub_folder,
+        deviceFolder: device.drive_letter + "/documents",
       });
       diff = result;
       // Select all new books by default
@@ -158,7 +158,7 @@
     if (devMode) { mockDisconnect(); return; }
     ejectError = null;
     try {
-      await invoke("eject", { drive_letter: device.drive_letter });
+      await invoke("eject", { driveLetter: device.drive_letter });
       device = null;
     } catch (err) {
       ejectError = String(err);
@@ -190,8 +190,8 @@
     try {
       await invoke("copy_epubs", {
         filenames: [...selected],
-        local_folder: config.epub_folder,
-        device_folder: device.drive_letter + "/documents",
+        localFolder: config.epub_folder,
+        deviceFolder: device.drive_letter + "/documents",
       });
     } catch (err) {
       syncError = String(err);
