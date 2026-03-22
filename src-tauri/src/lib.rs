@@ -1,6 +1,7 @@
 pub mod config;
 pub mod copy;
 pub mod epub;
+pub mod log;
 pub mod usb;
 pub mod updater;
 
@@ -27,6 +28,13 @@ pub fn run() {
             get_force_setup,
         ])
         .setup(|app| {
+            // Initialise the log file in the app config directory.
+            if let Ok(config_dir) = app.handle().path().app_config_dir() {
+                let _ = std::fs::create_dir_all(&config_dir);
+                log::init(&config_dir);
+                crate::log!("epubl started");
+            }
+
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 usb::watch_ereader(handle).await;

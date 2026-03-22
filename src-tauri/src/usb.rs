@@ -227,6 +227,10 @@ mod windows_impl {
             let mut results = Vec::new();
             for drive in drives {
                 if !is_ereader(&drive.pnp_device_id, &drive.model) {
+                    crate::log!(
+                        "[usb] skipped non-eReader: pnp=\"{}\" model=\"{}\"",
+                        drive.pnp_device_id, drive.model
+                    );
                     continue;
                 }
                 let vendor = identify_vendor(&drive.pnp_device_id, &drive.model);
@@ -234,6 +238,10 @@ mod windows_impl {
                     .block_on(get_drive_letter(&drive.device_id, &wmi))
                     .unwrap_or_default();
 
+                crate::log!(
+                    "[usb] eReader detected on startup: vendor={} model=\"{}\" pnp=\"{}\" drive={}",
+                    vendor, drive.model, drive.pnp_device_id, drive_letter
+                );
                 results.push(EReaderInfo {
                     drive_letter,
                     model: drive.model.clone(),
@@ -355,6 +363,10 @@ mod windows_impl {
                 Ok(ev) => {
                     let drive = &ev.target_instance;
                     if !is_ereader(&drive.pnp_device_id, &drive.model) {
+                        crate::log!(
+                            "[usb] hotplug: skipped non-eReader: pnp=\"{}\" model=\"{}\"",
+                            drive.pnp_device_id, drive.model
+                        );
                         continue;
                     }
 
@@ -365,6 +377,10 @@ mod windows_impl {
                         .block_on(get_drive_letter(&drive.device_id, &wmi))
                         .unwrap_or_default();
 
+                    crate::log!(
+                        "[usb] eReader connected: vendor={} model=\"{}\" pnp=\"{}\" drive={}",
+                        vendor, drive.model, drive.pnp_device_id, drive_letter
+                    );
                     let info = EReaderInfo {
                         drive_letter,
                         model: drive.model.clone(),
@@ -396,13 +412,17 @@ mod windows_impl {
                         continue;
                     }
 
+                    let vendor = identify_vendor(&drive.pnp_device_id, &drive.model);
+                    crate::log!(
+                        "[usb] eReader disconnected: vendor={} model=\"{}\" pnp=\"{}\"",
+                        vendor, drive.model, drive.pnp_device_id
+                    );
                     // The drive letter is gone by the time the deletion event
                     // fires, so we send an empty string for that field.
                     let info = EReaderInfo {
                         drive_letter: String::new(),
                         model: drive.model.clone(),
-                        vendor: identify_vendor(&drive.pnp_device_id, &drive.model)
-                            .to_string(),
+                        vendor: vendor.to_string(),
                     };
 
                     if let Err(e) = app.emit("ereader-disconnected", &info) {
