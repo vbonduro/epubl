@@ -52,7 +52,7 @@ pub fn write_line(line: &str) {
 
 /// Convenience macro — formats a message and writes it to the log.
 ///
-/// ```rust
+/// ```rust,ignore
 /// epubl_lib::log!("USB device seen: pnp={} model={}", pnp_id, model);
 /// ```
 #[macro_export]
