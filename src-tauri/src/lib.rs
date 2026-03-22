@@ -29,6 +29,7 @@ pub fn run() {
         ])
         .setup(|app| {
             // Initialise the log file in the app config directory.
+            use tauri::Manager;
             if let Ok(config_dir) = app.handle().path().app_config_dir() {
                 let _ = std::fs::create_dir_all(&config_dir);
                 log::init(&config_dir);
