@@ -9,15 +9,15 @@
   // ---------------------------------------------------------------------------
 
   interface Config {
-    epubFolder: string;
-    ereaderPath: string | null;
-    bookstoreUrl: string;
-    supportEmail: string;
-    firstRun: boolean;
+    epub_folder: string;
+    ereader_path: string | null;
+    bookstore_url: string;
+    support_email: string;
+    first_run: boolean;
   }
 
   interface EReaderInfo {
-    driveLetter: string;
+    drive_letter: string;
     model: string;
     vendor: string;
   }
@@ -26,12 +26,12 @@
     filename: string;
     title: string;
     author: string;
-    sizeBytes: number;
+    size_bytes: number;
   }
 
   interface DiffResult {
-    toCopy: EpubInfo[];
-    upToDate: EpubInfo[];
+    to_copy: EpubInfo[];
+    up_to_date: EpubInfo[];
   }
 
   // ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@
   // Sync
   let syncBusy = $state(false);
   let syncError = $state<string | null>(null);
-  let syncProgress = $state<{ filename: string; filesDone: number; filesTotal: number; bytesCopied: number; bytesTotal: number } | null>(null);
+  let syncProgress = $state<{ filename: string; files_done: number; files_total: number; bytes_copied: number; bytes_total: number } | null>(null);
 
   // Update banner
   let updateVersion = $state<string | null>(null);
@@ -87,11 +87,11 @@
     wizardError = null;
     try {
       const updated: Config = {
-        epubFolder: wizardFolder,
-        ereaderPath: config?.ereaderPath ?? null,
-        bookstoreUrl: config?.bookstoreUrl ?? "https://www.amazon.com/ebooks",
-        supportEmail: wizardEmail.trim(),
-        firstRun: false,
+        epub_folder: wizardFolder,
+        ereader_path: config?.ereader_path ?? null,
+        bookstore_url: config?.bookstore_url ?? "https://www.amazon.com/ebooks",
+        support_email: wizardEmail.trim(),
+        first_run: false,
       };
       try { await invoke("set_config", { config: updated }); } catch { /* browser mode */ }
       config = updated;
@@ -109,7 +109,7 @@
   // ---------------------------------------------------------------------------
 
   function reportProblem(context: string) {
-    const email = config?.supportEmail;
+    const email = config?.support_email;
     if (!email) return;
     const subject = encodeURIComponent("epubl problem report");
     const body = encodeURIComponent(
@@ -124,15 +124,15 @@
   // ---------------------------------------------------------------------------
 
   async function loadDiff() {
-    if (!config?.epubFolder || !device) return;
+    if (!config?.epub_folder || !device) return;
     try {
       const result = await invoke<DiffResult>("diff_epubs", {
-        localFolder: config.epubFolder,
-        deviceFolder: device.driveLetter + "/documents",
+        local_folder: config.epub_folder,
+        device_folder: device.drive_letter + "/documents",
       });
       diff = result;
       // Select all new books by default
-      selected = new Set(result.toCopy.map((b) => b.filename));
+      selected = new Set(result.to_copy.map((b) => b.filename));
       libraryError = null;
     } catch (err) {
       libraryError = String(err);
@@ -158,7 +158,7 @@
     if (devMode) { mockDisconnect(); return; }
     ejectError = null;
     try {
-      await invoke("eject", { driveLetter: device.driveLetter });
+      await invoke("eject", { drive_letter: device.drive_letter });
       device = null;
     } catch (err) {
       ejectError = String(err);
@@ -172,12 +172,12 @@
   async function handleSync() {
     if (selected.size === 0 || !device) return;
     if (devMode) { mockTransfer(); return; }
-    if (!config?.epubFolder) return;
+    if (!config?.epub_folder) return;
     syncBusy = true;
     syncError = null;
     syncProgress = null;
 
-    const unlistenProgress = listen<{ filename: string; filesDone: number; filesTotal: number; bytesCopied: number; bytesTotal: number }>(
+    const unlistenProgress = listen<{ filename: string; files_done: number; files_total: number; bytes_copied: number; bytes_total: number }>(
       "copy-progress",
       (e) => { syncProgress = e.payload; }
     );
@@ -190,8 +190,8 @@
     try {
       await invoke("copy_epubs", {
         filenames: [...selected],
-        localFolder: config.epubFolder,
-        deviceFolder: device.driveLetter + "/documents",
+        local_folder: config.epub_folder,
+        device_folder: device.drive_letter + "/documents",
       });
     } catch (err) {
       syncError = String(err);
@@ -209,10 +209,10 @@
 
   function toggleSelectAll() {
     if (!diff) return;
-    if (selected.size === diff.toCopy.length) {
+    if (selected.size === diff.to_copy.length) {
       selected = new Set();
     } else {
-      selected = new Set(diff.toCopy.map((b) => b.filename));
+      selected = new Set(diff.to_copy.map((b) => b.filename));
     }
   }
 
@@ -226,8 +226,8 @@
   }
 
   function progressPct(): number {
-    if (!syncProgress || syncProgress.bytesTotal === 0) return 0;
-    return Math.round((syncProgress.bytesCopied / syncProgress.bytesTotal) * 100);
+    if (!syncProgress || syncProgress.bytes_total === 0) return 0;
+    return Math.round((syncProgress.bytes_copied / syncProgress.bytes_total) * 100);
   }
 
   // ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@
   // ---------------------------------------------------------------------------
 
   function mockConnect() {
-    device = { driveLetter: "E:", model: "Kobo Clara HD", vendor: "Kobo" };
+    device = { drive_letter: "E:", model: "Kobo Clara HD", vendor: "Kobo" };
     ejectError = null;
     mockLoadBooks();
   }
@@ -249,16 +249,16 @@
 
   function mockLoadBooks() {
     const mockBooks: EpubInfo[] = [
-      { filename: "great-gatsby.epub", title: "The Great Gatsby", author: "F. Scott Fitzgerald", sizeBytes: 1024000 },
-      { filename: "pride-prejudice.epub", title: "Pride and Prejudice", author: "Jane Austen", sizeBytes: 1280000 },
-      { filename: "mockingbird.epub", title: "To Kill a Mockingbird", author: "Harper Lee", sizeBytes: 1536000 },
-      { filename: "1984.epub", title: "1984", author: "George Orwell", sizeBytes: 768000 },
-      { filename: "catcher-rye.epub", title: "The Catcher in the Rye", author: "J.D. Salinger", sizeBytes: 896000 },
+      { filename: "great-gatsby.epub", title: "The Great Gatsby", author: "F. Scott Fitzgerald", size_bytes: 1024000 },
+      { filename: "pride-prejudice.epub", title: "Pride and Prejudice", author: "Jane Austen", size_bytes: 1280000 },
+      { filename: "mockingbird.epub", title: "To Kill a Mockingbird", author: "Harper Lee", size_bytes: 1536000 },
+      { filename: "1984.epub", title: "1984", author: "George Orwell", size_bytes: 768000 },
+      { filename: "catcher-rye.epub", title: "The Catcher in the Rye", author: "J.D. Salinger", size_bytes: 896000 },
     ];
     diff = {
-      toCopy: mockBooks,
-      upToDate: [
-        { filename: "already-synced.epub", title: "Already Synced Book", author: "Some Author", sizeBytes: 512000 },
+      to_copy: mockBooks,
+      up_to_date: [
+        { filename: "already-synced.epub", title: "Already Synced Book", author: "Some Author", size_bytes: 512000 },
       ],
     };
     selected = new Set(mockBooks.map((b) => b.filename));
@@ -266,7 +266,7 @@
   }
 
   function mockClearBooks() {
-    diff = { toCopy: [], upToDate: [] };
+    diff = { to_copy: [], up_to_date: [] };
     selected = new Set();
   }
 
@@ -282,10 +282,10 @@
       done++;
       syncProgress = {
         filename: filenames[done - 1],
-        filesDone: done,
-        filesTotal: total,
-        bytesCopied: done * 1000000,
-        bytesTotal: total * 1000000,
+        files_done: done,
+        files_total: total,
+        bytes_copied: done * 1000000,
+        bytes_total: total * 1000000,
       };
       if (done >= total) {
         clearInterval(interval);
@@ -294,10 +294,10 @@
           syncProgress = null;
           // Move copied books to upToDate
           if (diff) {
-            const copied = diff.toCopy.filter((b) => selected.has(b.filename));
+            const copied = diff.to_copy.filter((b) => selected.has(b.filename));
             diff = {
-              toCopy: diff.toCopy.filter((b) => !selected.has(b.filename)),
-              upToDate: [...diff.upToDate, ...copied],
+              to_copy: diff.to_copy.filter((b) => !selected.has(b.filename)),
+              up_to_date: [...diff.up_to_date, ...copied],
             };
           }
           selected = new Set();
@@ -312,9 +312,10 @@
 
   onMount(() => {
     invoke<Config>("get_config")
-      .then((cfg) => {
+      .then(async (cfg) => {
         config = cfg;
-        if (cfg.firstRun) {
+        const forceSetup = await invoke<boolean>("get_force_setup").catch(() => false);
+        if (cfg.first_run || forceSetup) {
           showWizard = true;
         } else {
           loadDiff();
@@ -551,7 +552,7 @@
             </button>
           {/if}
 
-          {#if !diff || (diff.toCopy.length === 0 && diff.upToDate.length === 0)}
+          {#if !diff || (diff.to_copy.length === 0 && diff.up_to_date.length === 0)}
             <button class="btn-mock" onclick={mockLoadBooks} disabled={!device}>
               {@render plusIcon("mock-btn-icon")}
               Mock: Add ePubs
@@ -563,7 +564,7 @@
             </button>
           {/if}
 
-          {#if device && diff && diff.toCopy.length > 0 && selected.size > 0 && !syncBusy}
+          {#if device && diff && diff.to_copy.length > 0 && selected.size > 0 && !syncBusy}
             <button class="btn-mock" onclick={mockTransfer}>
               {@render uploadIcon("mock-btn-icon")}
               Mock: Simulate Transfer
@@ -585,10 +586,10 @@
         </div>
       </div>
       <div class="card-body">
-        {#if config?.bookstoreUrl}
+        {#if config?.bookstore_url}
           <div class="bookstore-box">
             <p>Download books at the link below by clicking on the book you want then choosing Download: EPUB</p>
-            <a class="bookstore-link" href={config.bookstoreUrl} target="_blank" rel="noopener noreferrer">
+            <a class="bookstore-link" href={config.bookstore_url} target="_blank" rel="noopener noreferrer">
               {@render externalLinkIcon("alert-icon")}
               Visit Ebook Store
             </a>
@@ -626,7 +627,7 @@
           </div>
           <div class="device-info">
             <p class="device-model">{device.model}</p>
-            <p class="device-drive">{device.driveLetter}</p>
+            <p class="device-drive">{device.drive_letter}</p>
           </div>
           <div class="eject-row">
             <button class="btn btn-eject" onclick={handleEject}>
@@ -637,7 +638,7 @@
 
           {#if ejectError}
             <p class="eject-error">{ejectError}</p>
-            {#if config?.supportEmail}
+            {#if config?.support_email}
               <button class="btn btn-report" onclick={() => reportProblem(`Eject error: ${ejectError}`)}>
                 Report problem
               </button>
@@ -650,7 +651,7 @@
               {@render uploadIcon("transfer-icon")}
               <p class="transfer-title">Loading books onto your eReader…</p>
               <p class="transfer-sub">
-                {syncProgress ? `${syncProgress.filesDone} of ${syncProgress.filesTotal}` : ''} book{selected.size !== 1 ? 's' : ''} being copied
+                {syncProgress ? `${syncProgress.files_done} of ${syncProgress.files_total}` : ''} book{selected.size !== 1 ? 's' : ''} being copied
               </p>
               <div class="progress-bar">
                 <div class="progress-fill" style="width: {progressPct()}%"></div>
@@ -660,7 +661,7 @@
 
           {:else if libraryError}
             <p class="error-text">{libraryError}</p>
-            {#if config?.supportEmail}
+            {#if config?.support_email}
               <button class="btn btn-report" onclick={() => reportProblem(`Library error: ${libraryError}`)}>
                 Report problem
               </button>
@@ -671,7 +672,7 @@
               {@render alertCircleIcon("alert-icon")}
               <span>{syncError}</span>
             </div>
-            {#if config?.supportEmail}
+            {#if config?.support_email}
               <button class="btn btn-report" style="margin-top: 12px;" onclick={() => reportProblem(`Sync error: ${syncError}`)}>
                 Report problem
               </button>
@@ -680,10 +681,10 @@
           {:else if !diff}
             <p class="placeholder">Loading…</p>
 
-          {:else if diff.toCopy.length === 0 && diff.upToDate.length === 0}
+          {:else if diff.to_copy.length === 0 && diff.up_to_date.length === 0}
             <p class="placeholder">No epub files found in your library folder.</p>
 
-          {:else if diff.toCopy.length === 0 && diff.upToDate.length > 0}
+          {:else if diff.to_copy.length === 0 && diff.up_to_date.length > 0}
             <!-- All synced -->
             <div class="alert alert-done">
               {@render checkCircleIcon("alert-icon")}
@@ -696,17 +697,17 @@
               <label class="select-all-label">
                 <input
                   type="checkbox"
-                  checked={selected.size === diff.toCopy.length && diff.toCopy.length > 0}
+                  checked={selected.size === diff.to_copy.length && diff.to_copy.length > 0}
                   onchange={toggleSelectAll}
                 />
-                Select All ({diff.toCopy.length} book{diff.toCopy.length !== 1 ? 's' : ''})
+                Select All ({diff.to_copy.length} book{diff.to_copy.length !== 1 ? 's' : ''})
               </label>
               <span class="selected-count">{selected.size} selected</span>
             </div>
 
             <!-- Book list -->
             <ul class="epub-list">
-              {#each diff.toCopy as book (book.filename)}
+              {#each diff.to_copy as book (book.filename)}
                 <li class="epub-item epub-item-new" class:is-selected={selected.has(book.filename)}>
                   <label class="epub-label">
                     <input
@@ -718,13 +719,13 @@
                     <div class="epub-text">
                       <span class="epub-title">{book.title}</span>
                       <p class="epub-meta">
-                        {formatSize(book.sizeBytes)}{#if book.author} · {book.author}{/if}
+                        {formatSize(book.size_bytes)}{#if book.author} · {book.author}{/if}
                       </p>
                     </div>
                   </label>
                 </li>
               {/each}
-              {#each diff.upToDate as book (book.filename)}
+              {#each diff.up_to_date as book (book.filename)}
                 <li class="epub-item epub-item-synced">
                   <label class="epub-label">
                     <input type="checkbox" checked disabled />
@@ -732,7 +733,7 @@
                     <div class="epub-text">
                       <span class="epub-title">{book.title}</span>
                       <p class="epub-meta">
-                        {formatSize(book.sizeBytes)}{#if book.author} · {book.author}{/if}
+                        {formatSize(book.size_bytes)}{#if book.author} · {book.author}{/if}
                       </p>
                     </div>
                   </label>

@@ -4,6 +4,12 @@ pub mod epub;
 pub mod usb;
 pub mod updater;
 
+/// Returns true if the app was launched with `--setup`, forcing the config wizard open.
+#[tauri::command]
+fn get_force_setup() -> bool {
+    std::env::args().any(|a| a == "--setup")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -18,6 +24,7 @@ pub fn run() {
             epub::list_epubs,
             epub::diff_epubs,
             copy::copy_epubs,
+            get_force_setup,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
