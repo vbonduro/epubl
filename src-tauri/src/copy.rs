@@ -97,6 +97,7 @@ where
 /// Copies the selected epub files from the local folder to the eReader,
 /// emitting `copy-progress` events after each file and `copy-complete` on
 /// success.
+#[cfg(not(feature = "e2e-mock"))]
 #[tauri::command]
 pub fn copy_epubs(
     app: tauri::AppHandle,
@@ -111,6 +112,33 @@ pub fn copy_epubs(
         let _ = app.emit("copy-progress", &event);
     })?;
 
+    let _ = app.emit("copy-complete", ());
+    Ok(())
+}
+
+/// Mock version: sleeps briefly then emits copy-complete so E2E tests can
+/// observe the Syncing… state before it resolves.
+#[cfg(feature = "e2e-mock")]
+#[tauri::command]
+pub fn copy_epubs(
+    app: tauri::AppHandle,
+    filenames: Vec<String>,
+    _local_folder: String,
+    _device_folder: String,
+) -> Result<(), String> {
+    use tauri::Emitter;
+    let total = filenames.len() as u32;
+    for (i, filename) in filenames.iter().enumerate() {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        let _ = app.emit("copy-progress", &CopyEvent {
+            filename: filename.clone(),
+            files_done: (i + 1) as u32,
+            files_total: total,
+            bytes_copied: ((i + 1) * 1000) as u64,
+            bytes_total: (total * 1000) as u64,
+        });
+    }
+    std::thread::sleep(std::time::Duration::from_millis(200));
     let _ = app.emit("copy-complete", ());
     Ok(())
 }
