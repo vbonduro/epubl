@@ -15,7 +15,6 @@ use std::path::Path;
 
 /// Metadata for a single epub file on disk.
 #[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
 pub struct EpubInfo {
     /// Bare filename, e.g. `"great-expectations.epub"`.
     pub filename: String,
@@ -150,7 +149,6 @@ fn extract_xml_text(xml: &str, tag: &str) -> String {
 
 /// Result of comparing the local epub folder against the eReader's folder.
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DiffResult {
     /// Books present locally but not on the eReader — candidates to copy.
     pub to_copy: Vec<EpubInfo>,

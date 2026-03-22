@@ -22,7 +22,6 @@ use serde::Serialize;
 
 /// Information about a detected eReader that is sent to the frontend.
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct EReaderInfo {
     /// Drive letter assigned by the OS, e.g. `"E:"`.
     pub drive_letter: String,
