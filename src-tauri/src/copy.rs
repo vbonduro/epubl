@@ -116,11 +116,11 @@ pub fn copy_epubs(
     Ok(())
 }
 
-/// Mock version: sleeps briefly then emits copy-complete so E2E tests can
-/// observe the Syncing… state before it resolves.
+/// Mock version: emits progress then copy-complete asynchronously so E2E
+/// tests can observe the Syncing… state without blocking the UI thread.
 #[cfg(feature = "e2e-mock")]
 #[tauri::command]
-pub fn copy_epubs(
+pub async fn copy_epubs(
     app: tauri::AppHandle,
     filenames: Vec<String>,
     _local_folder: String,
@@ -129,7 +129,9 @@ pub fn copy_epubs(
     use tauri::Emitter;
     let total = filenames.len() as u32;
     for (i, filename) in filenames.iter().enumerate() {
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        tauri::async_runtime::spawn_blocking(|| {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+        }).await.ok();
         let _ = app.emit("copy-progress", &CopyEvent {
             filename: filename.clone(),
             files_done: (i + 1) as u32,
@@ -138,7 +140,9 @@ pub fn copy_epubs(
             bytes_total: (total * 1000) as u64,
         });
     }
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    tauri::async_runtime::spawn_blocking(|| {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+    }).await.ok();
     let _ = app.emit("copy-complete", ());
     Ok(())
 }

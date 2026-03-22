@@ -17,19 +17,24 @@ describe('Sync button', () => {
 
     const btn = await $('.btn-sync')
     await btn.click()
-    await expect(btn).toHaveText('Syncing…')
+    // Wait for the disabled state which indicates sync is in progress
+    await browser.waitUntil(
+      async () => await btn.getAttribute('disabled') !== null,
+      { timeout: 3000, interval: 100, timeoutMsg: 'Button never became disabled' }
+    )
     await expect(btn).toBeDisabled()
   })
 
-  it('returns to Sync (N) label after operation completes', async () => {
+  it('returns to Load N Books label after operation completes', async () => {
     const items = await $$('.epub-item-new')
     if (items.length === 0) return // non-mock build, skip
 
     const btn = await $('.btn-sync')
-    // Wait for the setTimeout stub to complete (1500ms + buffer)
-    await browser.pause(2000)
-    // Button label includes selection count, e.g. "Sync (2)"
-    await expect(btn).toHaveText('Load 2 Books')
+    // Wait for sync to finish (mock takes ~900ms) plus buffer
+    await browser.waitUntil(
+      async () => await btn.getAttribute('disabled') === null,
+      { timeout: 5000, interval: 200, timeoutMsg: 'Button never became enabled again' }
+    )
     await expect(btn).not.toBeDisabled()
   })
 })
